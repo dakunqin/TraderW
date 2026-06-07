@@ -1,0 +1,8 @@
+InpServerUrl=https://traderw.yiyideyi.org
+InpApiKey=ak_aP0AzeuL_aP0AzeuL8XVmq2DMe5Dj50EUXr21ocDJpIyTRgVZd-g
+InpIntervalSeconds=10
+InpTimeoutMs=15000
+InpPostRetryCount=5
+InpRetryDelayMs=500
+InpSlippage=5
+InpDebug=false

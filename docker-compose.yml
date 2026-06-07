@@ -1,0 +1,13 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - traderw_api_data:/data
+    ports:
+      - "8800:8800"
+    restart: unless-stopped
+
+volumes:
+  traderw_api_data:
