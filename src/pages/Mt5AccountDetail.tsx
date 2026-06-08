@@ -28,33 +28,43 @@ export default function Mt5AccountDetail() {
 
   useEffect(() => {
     let mounted = true
-    setLoading(true)
-    setError(null)
-    setActionMsg(null)
+    let inFlight = false
+    const refreshMs = 5000
 
-    Promise.all([
-      apiRequest<Mt5Account[]>('/api/v1/mt5-accounts', { accessToken }),
-      apiRequest<Mt5Order[]>(`/api/v1/mt5-accounts/${mt5AccountId}/orders`, { accessToken }),
-      apiRequest<Mt5Position[]>(`/api/v1/mt5-accounts/${mt5AccountId}/positions`, { accessToken }),
-    ])
-      .then(([accounts, os, ps]) => {
+    const load = async (showLoading: boolean) => {
+      if (inFlight) return
+      inFlight = true
+      if (showLoading) setLoading(true)
+      setError(null)
+      if (showLoading) setActionMsg(null)
+
+      try {
+        const [accounts, os, ps] = await Promise.all([
+          apiRequest<Mt5Account[]>('/api/v1/mt5-accounts', { accessToken }),
+          apiRequest<Mt5Order[]>(`/api/v1/mt5-accounts/${mt5AccountId}/orders`, { accessToken }),
+          apiRequest<Mt5Position[]>(`/api/v1/mt5-accounts/${mt5AccountId}/positions`, { accessToken }),
+        ])
         if (!mounted) return
         setAccount(accounts.find((a) => a.id === mt5AccountId) ?? null)
         setOrders(os)
         setPositions(ps)
-      })
-      .catch((e: any) => {
+      } catch (e: any) {
         if (!mounted) return
         if (e?.status === 401) logout()
         setError(e?.message ?? '加载失败')
-      })
-      .finally(() => {
+      } finally {
+        inFlight = false
         if (!mounted) return
-        setLoading(false)
-      })
+        if (showLoading) setLoading(false)
+      }
+    }
+
+    void load(true)
+    const timer = setInterval(() => void load(false), refreshMs)
 
     return () => {
       mounted = false
+      clearInterval(timer)
     }
   }, [accessToken, logout, mt5AccountId])
 

@@ -19,24 +19,34 @@ export default function Mt5Accounts() {
 
   useEffect(() => {
     let mounted = true
-    setLoading(true)
-    setError(null)
-    apiRequest<Mt5Account[]>('/api/v1/mt5-accounts', { accessToken })
-      .then((res) => {
+    let inFlight = false
+    const refreshMs = 5000
+
+    const load = async (showLoading: boolean) => {
+      if (inFlight) return
+      inFlight = true
+      if (showLoading) setLoading(true)
+      setError(null)
+      try {
+        const res = await apiRequest<Mt5Account[]>('/api/v1/mt5-accounts', { accessToken })
         if (!mounted) return
         setItems(res)
-      })
-      .catch((e: any) => {
+      } catch (e: any) {
         if (!mounted) return
         if (e?.status === 401) logout()
         setError(e?.message ?? '加载失败')
-      })
-      .finally(() => {
+      } finally {
+        inFlight = false
         if (!mounted) return
-        setLoading(false)
-      })
+        if (showLoading) setLoading(false)
+      }
+    }
+
+    void load(true)
+    const timer = setInterval(() => void load(false), refreshMs)
     return () => {
       mounted = false
+      clearInterval(timer)
     }
   }, [accessToken, logout])
 
@@ -56,6 +66,8 @@ export default function Mt5Accounts() {
               <th className="px-4 py-3 font-medium">净值</th>
               <th className="px-4 py-3 font-medium">余额</th>
               <th className="px-4 py-3 font-medium">保证金</th>
+              <th className="px-4 py-3 font-medium">可用保证金</th>
+              <th className="px-4 py-3 font-medium">亏损</th>
               <th className="px-4 py-3 font-medium">最近同步</th>
               <th className="px-4 py-3 font-medium"></th>
             </tr>
@@ -63,7 +75,7 @@ export default function Mt5Accounts() {
           <tbody className="bg-zinc-950/40">
             {loading ? (
               <tr>
-                <td className="px-4 py-6 text-zinc-400" colSpan={8}>
+                <td className="px-4 py-6 text-zinc-400" colSpan={10}>
                   加载中…
                 </td>
               </tr>
@@ -76,6 +88,8 @@ export default function Mt5Accounts() {
                   <td className="px-4 py-3 text-zinc-200">{a.equity.toFixed(2)}</td>
                   <td className="px-4 py-3 text-zinc-200">{a.balance.toFixed(2)}</td>
                   <td className="px-4 py-3 text-zinc-200">{a.margin.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-zinc-200">{a.margin_free.toFixed(2)}</td>
+                  <td className={cn('px-4 py-3', a.profit < 0 ? 'text-red-300' : 'text-zinc-200')}>{(a.profit < 0 ? -a.profit : 0).toFixed(2)}</td>
                   <td className="px-4 py-3 text-zinc-400">{a.last_sync_at ? new Date(a.last_sync_at).toLocaleString() : '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end">
@@ -92,7 +106,7 @@ export default function Mt5Accounts() {
               ))
             ) : (
               <tr>
-                <td className="px-4 py-6 text-zinc-400" colSpan={8}>
+                <td className="px-4 py-6 text-zinc-400" colSpan={10}>
                   暂无数据。先在 API Key 页面生成 Key，并让 EA 正常同步。
                 </td>
               </tr>
