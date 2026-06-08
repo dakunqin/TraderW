@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, XCircle } from 'lucide-react'
 
@@ -25,6 +25,8 @@ export default function Mt5AccountDetail() {
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('positions')
   const [actionMsg, setActionMsg] = useState<string | null>(null)
+  const [flashOn, setFlashOn] = useState(false)
+  const flashTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -45,7 +47,16 @@ export default function Mt5AccountDetail() {
           apiRequest<Mt5Position[]>(`/api/v1/mt5-accounts/${mt5AccountId}/positions`, { accessToken }),
         ])
         if (!mounted) return
-        setAccount(accounts.find((a) => a.id === mt5AccountId) ?? null)
+        const acc = accounts.find((a) => a.id === mt5AccountId) ?? null
+        const hasTrades = (acc?.orders_count ?? 0) + (acc?.positions_count ?? 0) > 0
+        if (hasTrades) {
+          if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current)
+          setFlashOn(true)
+          flashTimerRef.current = window.setTimeout(() => setFlashOn(false), 350)
+        } else {
+          setFlashOn(false)
+        }
+        setAccount(acc)
         setOrders(os)
         setPositions(ps)
       } catch (e: any) {
@@ -65,6 +76,7 @@ export default function Mt5AccountDetail() {
     return () => {
       mounted = false
       clearInterval(timer)
+      if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current)
     }
   }, [accessToken, logout, mt5AccountId])
 
@@ -106,7 +118,25 @@ export default function Mt5AccountDetail() {
 
       {error ? <div className="mb-4 rounded-xl border border-red-900/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">{error}</div> : null}
       {actionMsg ? <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200">{actionMsg}</div> : null}
-      {moneySummary ? <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-xs text-zinc-300">{moneySummary}</div> : null}
+      {moneySummary ? (
+        <div
+          className={cn(
+            'mb-4 rounded-xl border border-zinc-800 px-3 py-2 text-xs text-zinc-300 transition-colors',
+            (account?.orders_count ?? 0) + (account?.positions_count ?? 0) > 0
+              ? account.profit >= 0
+                ? 'bg-emerald-950/20'
+                : 'bg-red-950/20'
+              : 'bg-zinc-950/40',
+            flashOn && (account?.orders_count ?? 0) + (account?.positions_count ?? 0) > 0
+              ? account.profit >= 0
+                ? 'bg-emerald-900/25'
+                : 'bg-red-900/25'
+              : '',
+          )}
+        >
+          {moneySummary}
+        </div>
+      ) : null}
 
       <div className="mb-4 flex items-center gap-2">
         <button
@@ -136,41 +166,48 @@ export default function Mt5AccountDetail() {
           <table className="w-full border-collapse text-left text-sm">
             <thead className="bg-zinc-950">
               <tr className="border-b border-zinc-800 text-xs text-zinc-500">
-                <th className="px-4 py-3 font-medium">订单</th>
-                <th className="px-4 py-3 font-medium">时间</th>
-                <th className="px-4 py-3 font-medium">类型</th>
-                <th className="px-4 py-3 font-medium">手数</th>
-                <th className="px-4 py-3 font-medium">交易品种</th>
-                <th className="px-4 py-3 font-medium">开仓价</th>
-                <th className="px-4 py-3 font-medium">止损</th>
-                <th className="px-4 py-3 font-medium">止盈</th>
-                <th className="px-4 py-3 font-medium">当前价</th>
-                <th className="px-4 py-3 font-medium">手续费</th>
-                <th className="px-4 py-3 font-medium">库存费</th>
-                <th className="px-4 py-3 font-medium">获利</th>
-                <th className="px-4 py-3 font-medium"></th>
+                <th className="px-3 py-2 font-medium">订单</th>
+                <th className="px-3 py-2 font-medium">时间</th>
+                <th className="px-3 py-2 font-medium">类型</th>
+                <th className="px-3 py-2 font-medium">手数</th>
+                <th className="px-3 py-2 font-medium">交易品种</th>
+                <th className="px-3 py-2 font-medium">开仓价</th>
+                <th className="px-3 py-2 font-medium">止损</th>
+                <th className="px-3 py-2 font-medium">止盈</th>
+                <th className="px-3 py-2 font-medium">当前价</th>
+                <th className="px-3 py-2 font-medium">手续费</th>
+                <th className="px-3 py-2 font-medium">库存费</th>
+                <th className="px-3 py-2 font-medium">获利</th>
+                <th className="px-3 py-2 font-medium"></th>
               </tr>
             </thead>
             <tbody className="bg-zinc-950/40">
               {positions.length ? (
                 positions.map((p) => (
-                  <tr key={p.id} className="border-b border-zinc-800 last:border-b-0">
-                    <td className="px-4 py-3 font-mono text-xs text-zinc-200">{p.ticket}</td>
-                    <td className="px-4 py-3 text-zinc-400">{p.time_open ? new Date(p.time_open).toLocaleString() : '—'}</td>
-                    <td className="px-4 py-3 text-zinc-400">{p.position_type}</td>
-                    <td className="px-4 py-3 text-zinc-200">{p.volume}</td>
-                    <td className="px-4 py-3 text-zinc-200">{p.symbol}</td>
-                    <td className="px-4 py-3 text-zinc-200">{p.price_open}</td>
-                    <td className="px-4 py-3 text-zinc-200">{p.sl}</td>
-                    <td className="px-4 py-3 text-zinc-200">{p.tp}</td>
-                    <td className="px-4 py-3 text-zinc-200">{p.price_current}</td>
-                    <td className={cn('px-4 py-3', p.commission >= 0 ? 'text-zinc-200' : 'text-red-300')}>{p.commission.toFixed(2)}</td>
-                    <td className={cn('px-4 py-3', p.swap >= 0 ? 'text-zinc-200' : 'text-red-300')}>{p.swap.toFixed(2)}</td>
-                    <td className={cn('px-4 py-3', p.profit >= 0 ? 'text-emerald-300' : 'text-red-300')}>{p.profit.toFixed(2)}</td>
-                    <td className="px-4 py-3">
+                  <tr
+                    key={p.id}
+                    className={cn(
+                      'border-b border-zinc-800 last:border-b-0 transition-colors',
+                      p.profit >= 0 ? 'bg-emerald-950/20' : 'bg-red-950/20',
+                      flashOn ? (p.profit >= 0 ? 'bg-emerald-900/25' : 'bg-red-900/25') : '',
+                    )}
+                  >
+                    <td className="px-3 py-2 font-mono text-xs text-zinc-200">{p.ticket}</td>
+                    <td className="px-3 py-2 text-zinc-400">{p.time_open ? new Date(p.time_open).toLocaleString() : '—'}</td>
+                    <td className="px-3 py-2 text-zinc-400">{p.position_type}</td>
+                    <td className="px-3 py-2 text-zinc-200">{p.volume}</td>
+                    <td className="px-3 py-2 text-zinc-200">{p.symbol}</td>
+                    <td className="px-3 py-2 text-zinc-200">{p.price_open}</td>
+                    <td className="px-3 py-2 text-zinc-200">{p.sl}</td>
+                    <td className="px-3 py-2 text-zinc-200">{p.tp}</td>
+                    <td className="px-3 py-2 text-zinc-200">{p.price_current}</td>
+                    <td className={cn('px-3 py-2', p.commission >= 0 ? 'text-zinc-200' : 'text-red-300')}>{p.commission.toFixed(2)}</td>
+                    <td className={cn('px-3 py-2', p.swap >= 0 ? 'text-zinc-200' : 'text-red-300')}>{p.swap.toFixed(2)}</td>
+                    <td className={cn('px-3 py-2', p.profit >= 0 ? 'text-emerald-300' : 'text-red-300')}>{p.profit.toFixed(2)}</td>
+                    <td className="px-3 py-2">
                       <div className="flex justify-end">
                         <button
-                          className="rounded-xl bg-red-500/90 px-3 py-2 text-xs font-semibold text-zinc-950 hover:bg-red-400"
+                          className="rounded-xl bg-red-500/90 px-2.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-red-400"
                           onClick={async () => {
                             setError(null)
                             setActionMsg(null)
@@ -194,7 +231,7 @@ export default function Mt5AccountDetail() {
                 ))
               ) : (
                 <tr>
-                  <td className="px-4 py-6 text-zinc-400" colSpan={13}>
+                  <td className="px-3 py-4 text-zinc-400" colSpan={13}>
                     暂无持仓
                   </td>
                 </tr>
@@ -207,39 +244,46 @@ export default function Mt5AccountDetail() {
           <table className="w-full border-collapse text-left text-sm">
             <thead className="bg-zinc-950">
               <tr className="border-b border-zinc-800 text-xs text-zinc-500">
-                <th className="px-4 py-3 font-medium">订单</th>
-                <th className="px-4 py-3 font-medium">时间</th>
-                <th className="px-4 py-3 font-medium">类型</th>
-                <th className="px-4 py-3 font-medium">手数</th>
-                <th className="px-4 py-3 font-medium">交易品种</th>
-                <th className="px-4 py-3 font-medium">挂单价</th>
-                <th className="px-4 py-3 font-medium">止损</th>
-                <th className="px-4 py-3 font-medium">止盈</th>
-                <th className="px-4 py-3 font-medium">当前价</th>
-                <th className="px-4 py-3 font-medium">手续费</th>
-                <th className="px-4 py-3 font-medium">库存费</th>
-                <th className="px-4 py-3 font-medium"></th>
+                <th className="px-3 py-2 font-medium">订单</th>
+                <th className="px-3 py-2 font-medium">时间</th>
+                <th className="px-3 py-2 font-medium">类型</th>
+                <th className="px-3 py-2 font-medium">手数</th>
+                <th className="px-3 py-2 font-medium">交易品种</th>
+                <th className="px-3 py-2 font-medium">挂单价</th>
+                <th className="px-3 py-2 font-medium">止损</th>
+                <th className="px-3 py-2 font-medium">止盈</th>
+                <th className="px-3 py-2 font-medium">当前价</th>
+                <th className="px-3 py-2 font-medium">手续费</th>
+                <th className="px-3 py-2 font-medium">库存费</th>
+                <th className="px-3 py-2 font-medium"></th>
               </tr>
             </thead>
             <tbody className="bg-zinc-950/40">
               {orders.length ? (
                 orders.map((o) => (
-                  <tr key={o.id} className="border-b border-zinc-800 last:border-b-0">
-                    <td className="px-4 py-3 font-mono text-xs text-zinc-200">{o.ticket}</td>
-                    <td className="px-4 py-3 text-zinc-400">{o.time_setup ? new Date(o.time_setup).toLocaleString() : '—'}</td>
-                    <td className="px-4 py-3 text-zinc-400">{o.order_type}</td>
-                    <td className="px-4 py-3 text-zinc-200">{o.volume}</td>
-                    <td className="px-4 py-3 text-zinc-200">{o.symbol}</td>
-                    <td className="px-4 py-3 text-zinc-200">{o.price_open}</td>
-                    <td className="px-4 py-3 text-zinc-200">{o.sl}</td>
-                    <td className="px-4 py-3 text-zinc-200">{o.tp}</td>
-                    <td className="px-4 py-3 text-zinc-200">{o.price_current}</td>
-                    <td className={cn('px-4 py-3', o.commission >= 0 ? 'text-zinc-200' : 'text-red-300')}>{o.commission.toFixed(2)}</td>
-                    <td className={cn('px-4 py-3', o.swap >= 0 ? 'text-zinc-200' : 'text-red-300')}>{o.swap.toFixed(2)}</td>
-                    <td className="px-4 py-3">
+                  <tr
+                    key={o.id}
+                    className={cn(
+                      'border-b border-zinc-800 last:border-b-0 transition-colors',
+                      (account?.profit ?? 0) >= 0 ? 'bg-emerald-950/20' : 'bg-red-950/20',
+                      flashOn ? ((account?.profit ?? 0) >= 0 ? 'bg-emerald-900/25' : 'bg-red-900/25') : '',
+                    )}
+                  >
+                    <td className="px-3 py-2 font-mono text-xs text-zinc-200">{o.ticket}</td>
+                    <td className="px-3 py-2 text-zinc-400">{o.time_setup ? new Date(o.time_setup).toLocaleString() : '—'}</td>
+                    <td className="px-3 py-2 text-zinc-400">{o.order_type}</td>
+                    <td className="px-3 py-2 text-zinc-200">{o.volume}</td>
+                    <td className="px-3 py-2 text-zinc-200">{o.symbol}</td>
+                    <td className="px-3 py-2 text-zinc-200">{o.price_open}</td>
+                    <td className="px-3 py-2 text-zinc-200">{o.sl}</td>
+                    <td className="px-3 py-2 text-zinc-200">{o.tp}</td>
+                    <td className="px-3 py-2 text-zinc-200">{o.price_current}</td>
+                    <td className={cn('px-3 py-2', o.commission >= 0 ? 'text-zinc-200' : 'text-red-300')}>{o.commission.toFixed(2)}</td>
+                    <td className={cn('px-3 py-2', o.swap >= 0 ? 'text-zinc-200' : 'text-red-300')}>{o.swap.toFixed(2)}</td>
+                    <td className="px-3 py-2">
                       <div className="flex justify-end">
                         <button
-                          className="rounded-xl bg-red-500/90 px-3 py-2 text-xs font-semibold text-zinc-950 hover:bg-red-400"
+                          className="rounded-xl bg-red-500/90 px-2.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-red-400"
                           onClick={async () => {
                             setError(null)
                             setActionMsg(null)
@@ -263,7 +307,7 @@ export default function Mt5AccountDetail() {
                 ))
               ) : (
                 <tr>
-                  <td className="px-4 py-6 text-zinc-400" colSpan={12}>
+                  <td className="px-3 py-4 text-zinc-400" colSpan={12}>
                     暂无挂单
                   </td>
                 </tr>

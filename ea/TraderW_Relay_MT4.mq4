@@ -266,6 +266,7 @@ string BuildSyncPayload()
 
     string symbol = OrderSymbol();
     int digits = (int)MarketInfo(symbol, MODE_DIGITS);
+    double price_current = (type == OP_BUYLIMIT || type == OP_BUYSTOP) ? MarketInfo(symbol, MODE_ASK) : MarketInfo(symbol, MODE_BID);
     if (!first_order) json += ",";
     first_order = false;
     json += "{";
@@ -274,8 +275,11 @@ string BuildSyncPayload()
     json += "\"order_type\":\"" + (type == OP_BUYLIMIT ? "buy_limit" : type == OP_SELLLIMIT ? "sell_limit" : type == OP_BUYSTOP ? "buy_stop" : type == OP_SELLSTOP ? "sell_stop" : "unknown") + "\",";
     json += "\"volume\":" + DoubleToStr(OrderLots(), 2) + ",";
     json += "\"price_open\":" + DoubleToStr(OrderOpenPrice(), digits) + ",";
+    json += "\"price_current\":" + DoubleToStr(price_current, digits) + ",";
     json += "\"sl\":" + DoubleToStr(OrderStopLoss(), digits) + ",";
     json += "\"tp\":" + DoubleToStr(OrderTakeProfit(), digits) + ",";
+    json += "\"commission\":0,";
+    json += "\"swap\":0,";
     json += "\"time_setup\":\"" + ToIso8601(OrderOpenTime()) + "\",";
     json += "\"time_done\":null";
     json += "}";
@@ -295,6 +299,11 @@ string BuildSyncPayload()
 
     string symbol2 = OrderSymbol();
     int digits2 = (int)MarketInfo(symbol2, MODE_DIGITS);
+    double price_current2 = OrderClosePrice();
+    if (price_current2 <= 0)
+      price_current2 = (type2 == OP_BUY) ? MarketInfo(symbol2, MODE_BID) : MarketInfo(symbol2, MODE_ASK);
+    double commission2 = OrderCommission();
+    double swap2 = OrderSwap();
     double profit = OrderProfit() + OrderSwap() + OrderCommission();
     if (!first_pos) json += ",";
     first_pos = false;
@@ -304,8 +313,11 @@ string BuildSyncPayload()
     json += "\"position_type\":\"" + (type2 == OP_BUY ? "buy" : "sell") + "\",";
     json += "\"volume\":" + DoubleToStr(OrderLots(), 2) + ",";
     json += "\"price_open\":" + DoubleToStr(OrderOpenPrice(), digits2) + ",";
+    json += "\"price_current\":" + DoubleToStr(price_current2, digits2) + ",";
     json += "\"sl\":" + DoubleToStr(OrderStopLoss(), digits2) + ",";
     json += "\"tp\":" + DoubleToStr(OrderTakeProfit(), digits2) + ",";
+    json += "\"commission\":" + DoubleToStr(commission2, 2) + ",";
+    json += "\"swap\":" + DoubleToStr(swap2, 2) + ",";
     json += "\"profit\":" + DoubleToStr(profit, 2) + ",";
     json += "\"time_open\":\"" + ToIso8601(OrderOpenTime()) + "\"";
     json += "}";

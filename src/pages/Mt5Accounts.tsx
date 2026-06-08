@@ -23,6 +23,7 @@ export default function Mt5Accounts() {
     let mounted = true
     let inFlight = false
     const refreshMs = 5000
+    const flashMs = 350
 
     const load = async (showLoading: boolean) => {
       if (inFlight) return
@@ -34,32 +35,12 @@ export default function Mt5Accounts() {
         if (!mounted) return
         const prev = lastItemsRef.current
         if (prev.length) {
-          const prevById = new Map(prev.map((x) => [x.id, x]))
-          const keyOf = (x: Mt5Account) =>
-            [
-              x.platform,
-              x.mt5_login,
-              x.mt5_server,
-              x.balance,
-              x.equity,
-              x.margin,
-              x.margin_free,
-              x.margin_level,
-              x.profit,
-              x.orders_count,
-              x.positions_count,
-              x.last_sync_at ?? '',
-            ].join('|')
-          const changedIds: number[] = []
-          for (const n of res) {
-            const p = prevById.get(n.id)
-            if (!p || keyOf(p) !== keyOf(n)) changedIds.push(n.id)
-          }
-          if (changedIds.length) {
-            const until = Date.now() + 650
+          const ids = res.filter((x) => x.orders_count + x.positions_count > 0).map((x) => x.id)
+          if (ids.length) {
+            const until = Date.now() + flashMs
             setFlashUntil((cur) => {
               const next = { ...cur }
-              for (const id of changedIds) next[id] = Math.max(next[id] ?? 0, until)
+              for (const id of ids) next[id] = Math.max(next[id] ?? 0, until)
               return next
             })
           }
@@ -108,22 +89,22 @@ export default function Mt5Accounts() {
         <table className="w-full border-collapse text-left text-sm">
           <thead className="bg-zinc-950">
             <tr className="border-b border-zinc-800 text-xs text-zinc-500">
-              <th className="px-4 py-3 font-medium">终端</th>
-              <th className="px-4 py-3 font-medium">登录号</th>
-              <th className="px-4 py-3 font-medium">服务器</th>
-              <th className="px-4 py-3 font-medium">净值</th>
-              <th className="px-4 py-3 font-medium">余额</th>
-              <th className="px-4 py-3 font-medium">保证金</th>
-              <th className="px-4 py-3 font-medium">可用保证金</th>
-              <th className="px-4 py-3 font-medium">盈亏</th>
-              <th className="px-4 py-3 font-medium">最近同步</th>
-              <th className="px-4 py-3 font-medium"></th>
+              <th className="px-3 py-2 font-medium">终端</th>
+              <th className="px-3 py-2 font-medium">登录号</th>
+              <th className="px-3 py-2 font-medium">服务器</th>
+              <th className="px-3 py-2 font-medium">净值</th>
+              <th className="px-3 py-2 font-medium">余额</th>
+              <th className="px-3 py-2 font-medium">保证金</th>
+              <th className="px-3 py-2 font-medium">可用保证金</th>
+              <th className="px-3 py-2 font-medium">盈亏</th>
+              <th className="px-3 py-2 font-medium">最近同步</th>
+              <th className="px-3 py-2 font-medium"></th>
             </tr>
           </thead>
           <tbody className="bg-zinc-950/40">
             {loading ? (
               <tr>
-                <td className="px-4 py-6 text-zinc-400" colSpan={10}>
+                <td className="px-3 py-4 text-zinc-400" colSpan={10}>
                   加载中…
                 </td>
               </tr>
@@ -133,30 +114,38 @@ export default function Mt5Accounts() {
                   key={a.id}
                   className={cn(
                     'border-b border-zinc-800 last:border-b-0 transition-colors',
-                    a.orders_count + a.positions_count > 0 ? 'bg-amber-950/30' : '',
-                    flashUntil[a.id] ? (a.orders_count + a.positions_count > 0 ? 'bg-amber-800/25' : 'bg-zinc-900/50') : '',
+                    a.orders_count + a.positions_count > 0
+                      ? a.profit >= 0
+                        ? 'bg-emerald-950/20'
+                        : 'bg-red-950/20'
+                      : '',
+                    flashUntil[a.id] && a.orders_count + a.positions_count > 0
+                      ? a.profit >= 0
+                        ? 'bg-emerald-900/25'
+                        : 'bg-red-900/25'
+                      : '',
                   )}
                 >
-                  <td className="px-4 py-3 text-zinc-300">{(a.platform || 'mt5').toUpperCase()}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-zinc-200">{a.mt5_login}</td>
-                  <td className="px-4 py-3 text-zinc-300">{a.mt5_server}</td>
-                  <td className="px-4 py-3 text-zinc-200">{a.equity.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-zinc-200">{a.balance.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-zinc-200">{a.margin.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-zinc-200">{a.margin_free.toFixed(2)}</td>
+                  <td className="px-3 py-2 text-zinc-300">{(a.platform || 'mt5').toUpperCase()}</td>
+                  <td className="px-3 py-2 font-mono text-xs text-zinc-200">{a.mt5_login}</td>
+                  <td className="px-3 py-2 text-zinc-300">{a.mt5_server}</td>
+                  <td className="px-3 py-2 text-zinc-200">{a.equity.toFixed(2)}</td>
+                  <td className="px-3 py-2 text-zinc-200">{a.balance.toFixed(2)}</td>
+                  <td className="px-3 py-2 text-zinc-200">{a.margin.toFixed(2)}</td>
+                  <td className="px-3 py-2 text-zinc-200">{a.margin_free.toFixed(2)}</td>
                   <td
                     className={cn(
-                      'px-4 py-3',
-                      a.profit >= 0 ? 'text-emerald-300' : 'text-red-300',
+                      'px-3 py-2',
+                      a.profit > 0 ? 'text-emerald-300' : a.profit < 0 ? 'text-red-300' : 'text-zinc-200',
                     )}
                   >
                     {a.profit.toFixed(2)}
                   </td>
-                  <td className="px-4 py-3 text-zinc-400">{a.last_sync_at ? new Date(a.last_sync_at).toLocaleString() : '—'}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 text-zinc-400">{a.last_sync_at ? new Date(a.last_sync_at).toLocaleString() : '—'}</td>
+                  <td className="px-3 py-2">
                     <div className="flex justify-end">
                       <Link
-                        className={cn('inline-flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-900')}
+                        className={cn('inline-flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950 px-2.5 py-1.5 text-xs text-zinc-200 hover:bg-zinc-900')}
                         to={`/mt5-accounts/${a.id}`}
                       >
                         查看
@@ -168,7 +157,7 @@ export default function Mt5Accounts() {
               ))
             ) : (
               <tr>
-                <td className="px-4 py-6 text-zinc-400" colSpan={10}>
+                <td className="px-3 py-4 text-zinc-400" colSpan={10}>
                   暂无数据。先在 API Key 页面生成 Key，并让 EA 正常同步。
                 </td>
               </tr>

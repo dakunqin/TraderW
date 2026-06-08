@@ -199,6 +199,7 @@ string BuildSyncPayload(const string mt5_login, const string mt5_server)
     long type = OrderGetInteger(ORDER_TYPE);
     double volume = OrderGetDouble(ORDER_VOLUME_CURRENT);
     double price_open = OrderGetDouble(ORDER_PRICE_OPEN);
+    double price_current = OrderGetDouble(ORDER_PRICE_CURRENT);
     double sl = OrderGetDouble(ORDER_SL);
     double tp = OrderGetDouble(ORDER_TP);
     datetime t_setup = (datetime)OrderGetInteger(ORDER_TIME_SETUP);
@@ -212,8 +213,11 @@ string BuildSyncPayload(const string mt5_login, const string mt5_server)
     json += "\"order_type\":\"" + OrderTypeToString(type) + "\",";
     json += "\"volume\":" + DoubleToString(volume, 2) + ",";
     json += "\"price_open\":" + DoubleToString(price_open, (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS)) + ",";
+    json += "\"price_current\":" + DoubleToString(price_current, (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS)) + ",";
     json += "\"sl\":" + DoubleToString(sl, (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS)) + ",";
     json += "\"tp\":" + DoubleToString(tp, (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS)) + ",";
+    json += "\"commission\":0,";
+    json += "\"swap\":0,";
     if (t_setup > 0) json += "\"time_setup\":\"" + ToIso8601(t_setup) + "\",";
     else json += "\"time_setup\":null,";
     if (t_done > 0) json += "\"time_done\":\"" + ToIso8601(t_done) + "\"";
@@ -234,8 +238,11 @@ string BuildSyncPayload(const string mt5_login, const string mt5_server)
     long type = PositionGetInteger(POSITION_TYPE);
     double volume = PositionGetDouble(POSITION_VOLUME);
     double price_open = PositionGetDouble(POSITION_PRICE_OPEN);
+    double price_current = PositionGetDouble(POSITION_PRICE_CURRENT);
     double sl = PositionGetDouble(POSITION_SL);
     double tp = PositionGetDouble(POSITION_TP);
+    double commission = PositionGetDouble(POSITION_COMMISSION);
+    double swap = PositionGetDouble(POSITION_SWAP);
     double profit = PositionGetDouble(POSITION_PROFIT);
     datetime t_open = (datetime)PositionGetInteger(POSITION_TIME);
 
@@ -247,8 +254,11 @@ string BuildSyncPayload(const string mt5_login, const string mt5_server)
     json += "\"position_type\":\"" + PositionTypeToString(type) + "\",";
     json += "\"volume\":" + DoubleToString(volume, 2) + ",";
     json += "\"price_open\":" + DoubleToString(price_open, (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS)) + ",";
+    json += "\"price_current\":" + DoubleToString(price_current, (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS)) + ",";
     json += "\"sl\":" + DoubleToString(sl, (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS)) + ",";
     json += "\"tp\":" + DoubleToString(tp, (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS)) + ",";
+    json += "\"commission\":" + DoubleToString(commission, 2) + ",";
+    json += "\"swap\":" + DoubleToString(swap, 2) + ",";
     json += "\"profit\":" + DoubleToString(profit, 2) + ",";
     if (t_open > 0) json += "\"time_open\":\"" + ToIso8601(t_open) + "\"";
     else json += "\"time_open\":null";
