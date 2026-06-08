@@ -67,6 +67,8 @@ class Mt5AccountItem(BaseModel):
     margin_free: float
     margin_level: float
     profit: float
+    orders_count: int
+    positions_count: int
     last_sync_at: datetime | None
 
 

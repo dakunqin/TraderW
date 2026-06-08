@@ -11,6 +11,8 @@ export type Mt5Account = {
   margin_free: number
   margin_level: number
   profit: number
+  orders_count: number
+  positions_count: number
   last_sync_at: string | null
 }
 

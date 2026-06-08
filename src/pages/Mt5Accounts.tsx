@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 
@@ -16,6 +16,8 @@ export default function Mt5Accounts() {
   const [items, setItems] = useState<Mt5Account[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [flashUntil, setFlashUntil] = useState<Record<number, number>>({})
+  const lastItemsRef = useRef<Mt5Account[]>([])
 
   useEffect(() => {
     let mounted = true
@@ -30,6 +32,39 @@ export default function Mt5Accounts() {
       try {
         const res = await apiRequest<Mt5Account[]>('/api/v1/mt5-accounts', { accessToken })
         if (!mounted) return
+        const prev = lastItemsRef.current
+        if (prev.length) {
+          const prevById = new Map(prev.map((x) => [x.id, x]))
+          const keyOf = (x: Mt5Account) =>
+            [
+              x.platform,
+              x.mt5_login,
+              x.mt5_server,
+              x.balance,
+              x.equity,
+              x.margin,
+              x.margin_free,
+              x.margin_level,
+              x.profit,
+              x.orders_count,
+              x.positions_count,
+              x.last_sync_at ?? '',
+            ].join('|')
+          const changedIds: number[] = []
+          for (const n of res) {
+            const p = prevById.get(n.id)
+            if (!p || keyOf(p) !== keyOf(n)) changedIds.push(n.id)
+          }
+          if (changedIds.length) {
+            const until = Date.now() + 650
+            setFlashUntil((cur) => {
+              const next = { ...cur }
+              for (const id of changedIds) next[id] = Math.max(next[id] ?? 0, until)
+              return next
+            })
+          }
+        }
+        lastItemsRef.current = res
         setItems(res)
       } catch (e: any) {
         if (!mounted) return
@@ -44,9 +79,22 @@ export default function Mt5Accounts() {
 
     void load(true)
     const timer = setInterval(() => void load(false), refreshMs)
+    const flashGc = setInterval(() => {
+      const now = Date.now()
+      setFlashUntil((cur) => {
+        let changed = false
+        const next: Record<number, number> = {}
+        for (const [k, v] of Object.entries(cur)) {
+          if (v > now) next[Number(k)] = v
+          else changed = true
+        }
+        return changed ? next : cur
+      })
+    }, 200)
     return () => {
       mounted = false
       clearInterval(timer)
+      clearInterval(flashGc)
     }
   }, [accessToken, logout])
 
@@ -67,7 +115,7 @@ export default function Mt5Accounts() {
               <th className="px-4 py-3 font-medium">余额</th>
               <th className="px-4 py-3 font-medium">保证金</th>
               <th className="px-4 py-3 font-medium">可用保证金</th>
-              <th className="px-4 py-3 font-medium">亏损</th>
+              <th className="px-4 py-3 font-medium">盈亏</th>
               <th className="px-4 py-3 font-medium">最近同步</th>
               <th className="px-4 py-3 font-medium"></th>
             </tr>
@@ -81,7 +129,14 @@ export default function Mt5Accounts() {
               </tr>
             ) : items.length ? (
               items.map((a) => (
-                <tr key={a.id} className="border-b border-zinc-800 last:border-b-0">
+                <tr
+                  key={a.id}
+                  className={cn(
+                    'border-b border-zinc-800 last:border-b-0 transition-colors',
+                    a.orders_count + a.positions_count > 0 ? 'bg-amber-950/30' : '',
+                    flashUntil[a.id] ? (a.orders_count + a.positions_count > 0 ? 'bg-amber-800/25' : 'bg-zinc-900/50') : '',
+                  )}
+                >
                   <td className="px-4 py-3 text-zinc-300">{(a.platform || 'mt5').toUpperCase()}</td>
                   <td className="px-4 py-3 font-mono text-xs text-zinc-200">{a.mt5_login}</td>
                   <td className="px-4 py-3 text-zinc-300">{a.mt5_server}</td>
@@ -89,7 +144,14 @@ export default function Mt5Accounts() {
                   <td className="px-4 py-3 text-zinc-200">{a.balance.toFixed(2)}</td>
                   <td className="px-4 py-3 text-zinc-200">{a.margin.toFixed(2)}</td>
                   <td className="px-4 py-3 text-zinc-200">{a.margin_free.toFixed(2)}</td>
-                  <td className={cn('px-4 py-3', a.profit < 0 ? 'text-red-300' : 'text-zinc-200')}>{(a.profit < 0 ? -a.profit : 0).toFixed(2)}</td>
+                  <td
+                    className={cn(
+                      'px-4 py-3',
+                      a.profit >= 0 ? 'text-emerald-300' : 'text-red-300',
+                    )}
+                  >
+                    {a.profit.toFixed(2)}
+                  </td>
                   <td className="px-4 py-3 text-zinc-400">{a.last_sync_at ? new Date(a.last_sync_at).toLocaleString() : '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end">

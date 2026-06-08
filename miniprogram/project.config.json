@@ -1,0 +1,10 @@
+{
+  "description": "TraderW Mini Program (web-view wrapper)",
+  "miniprogramRoot": "miniprogram/",
+  "compileType": "miniprogram",
+  "appid": "PLEASE_REPLACE_WITH_YOUR_APPID",
+  "projectname": "TraderW",
+  "setting": {
+    "urlCheck": true
+  }
+}

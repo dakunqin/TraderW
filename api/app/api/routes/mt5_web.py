@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -14,6 +14,24 @@ router = APIRouter()
 @router.get("/mt5-accounts", response_model=list[Mt5AccountItem])
 def list_accounts(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     rows = db.scalars(select(Mt5Account).where(Mt5Account.user_id == user.id).order_by(Mt5Account.id.desc())).all()
+    acc_ids = [r.id for r in rows]
+    order_counts: dict[int, int] = {}
+    position_counts: dict[int, int] = {}
+    if acc_ids:
+        order_counts = dict(
+            db.execute(
+                select(Mt5Order.mt5_account_id, func.count(Mt5Order.id))
+                .where(Mt5Order.mt5_account_id.in_(acc_ids))
+                .group_by(Mt5Order.mt5_account_id)
+            ).all()
+        )
+        position_counts = dict(
+            db.execute(
+                select(Mt5Position.mt5_account_id, func.count(Mt5Position.id))
+                .where(Mt5Position.mt5_account_id.in_(acc_ids))
+                .group_by(Mt5Position.mt5_account_id)
+            ).all()
+        )
     return [
         Mt5AccountItem(
             id=r.id,
@@ -28,6 +46,8 @@ def list_accounts(user: User = Depends(get_current_user), db: Session = Depends(
             margin_free=r.margin_free,
             margin_level=r.margin_level,
             profit=r.profit,
+            orders_count=order_counts.get(r.id, 0),
+            positions_count=position_counts.get(r.id, 0),
             last_sync_at=r.last_sync_at,
         )
         for r in rows

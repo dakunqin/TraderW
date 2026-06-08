@@ -1,0 +1,8 @@
+{
+  "pages": [
+    "pages/web/web"
+  ],
+  "window": {
+    "navigationBarTitleText": "TraderW"
+  }
+}
